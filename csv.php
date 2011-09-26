@@ -3,13 +3,13 @@
 class Csv {
 	// take a CSV line (utf-8 encoded) and returns an array
 	// 'string1,string2,"string3","the ""string4"""' => array('string1', 'string2', 'string3', 'the "string4"')
-	static public function parseString($string, $separator = ',') {
+	static public function parseString($string, $separator = ',', $map = array()) {
 		$values = array();
 		$string = str_replace("\r\n", '', $string); // eat the traling new line, if any
 		if ($string == '') return $values;
 		$tokens = explode($separator, $string);
 		$count = count($tokens);
-		for ($i = 0; $i < $count; $i++) {
+		for ($j = 0, $i = 0; $i < $count; $i++) {
 			$token = $tokens[$i];
 			$len = strlen($token);
 			$newValue = '';
@@ -33,7 +33,11 @@ class Csv {
 				$newValue .= $token;
 			}
 
-			$values[] = $newValue;
+			if (!empty($map)) {
+				$values[$map[$j++]] = $newValue;
+			} else {
+				$values[] = $newValue;
+			}
 		}
 		return $values;
 	}
@@ -85,15 +89,16 @@ class CsvReader implements Iterator {
 	protected $currentLine = null;
 	protected $currentArray = null;
 	protected $separator = ',';
-	
+	protected $map = array();
 
-	public function __construct($filename, $separator = ',') {
+	public function __construct($filename, $separator = ',', $mapFields = false) {
 		$this->separator = $separator;
 		$this->fileHandle = fopen($filename, 'r');
 		if (!$this->fileHandle) return;
 		$this->filename = $filename;
 		$this->position = 0;
 		$this->_readLine();
+		if ($mapFields) $this->map = $this->current();
 	}
 
 	public function __destruct() {
@@ -116,6 +121,8 @@ class CsvReader implements Iterator {
 		}
 
 		$this->_readLine();
+		// always skip the first row if mapping fields
+		if (!empty($this->map)) $this->next();
 	}
 
 	public function current() {
@@ -138,7 +145,7 @@ class CsvReader implements Iterator {
 	protected function _readLine() {
 		if (!feof($this->fileHandle)) $this->currentLine = trim(utf8_encode(fgets($this->fileHandle)));
 		else $this->currentLine = null;
-		if ($this->currentLine != '') $this->currentArray = Csv::parseString($this->currentLine, $this->separator);
+		if ($this->currentLine != '') $this->currentArray = Csv::parseString($this->currentLine, $this->separator, $this->map);
 		else $this->currentArray = null;
 	}
 }
