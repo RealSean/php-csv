@@ -85,20 +85,32 @@ class CsvReader implements Iterator {
 
 	protected $fileHandle = null;
 	protected $position = null;
-	protected $filename = null;
 	protected $currentLine = null;
 	protected $currentArray = null;
-	protected $separator = ',';
 	protected $map = array();
 
-	public function __construct($filename, $separator = ',', $mapFields = false) {
-		$this->separator = $separator;
-		$this->fileHandle = fopen($filename, 'r');
+	protected $filename = null;
+	protected $separator = ',';
+	protected $mapFields = false;
+	protected $ignoreFirstRow = false;
+
+	public function __construct($filename, $separator = null) {
+		if (isset($separator)) $this->separator = $separator;
+		$this->readSettings($filename);
+		$this->fileHandle = fopen($this->filename, 'r');
 		if (!$this->fileHandle) return;
-		$this->filename = $filename;
 		$this->position = 0;
 		$this->_readLine();
-		if ($mapFields) $this->map = $this->current();
+		if ($this->mapFields) $this->map = $this->current();
+	}
+
+	private function readSettings($filename){
+		$settings = array();
+		$fields = array('filename','separator','mapFields','ignoreFirstRow');
+		foreach ($fields as $field) $settings[$field] = $this->$field;
+		if (is_array($filename)) $settings = array_merge($settings,$filename);
+		else $settings['filename'] = $filename;
+		foreach ($fields as $field) $this->$field = $settings[$field];
 	}
 
 	public function __destruct() {
@@ -121,8 +133,7 @@ class CsvReader implements Iterator {
 		}
 
 		$this->_readLine();
-		// always skip the first row if mapping fields
-		if (!empty($this->map)) $this->next();
+		if ($this->ignoreFirstRow) $this->next();
 	}
 
 	public function current() {
